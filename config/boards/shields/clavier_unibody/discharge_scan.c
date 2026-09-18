@@ -17,6 +17,11 @@
  * 判定が確定しなくなる問題があったため、ZMK本体が標準ドライバでも使っている
  * 実績のある時間ベース積分方式のデバウンスライブラリ(zmk/debounce.h)に
  * 置き換えた。
+ * 【v4】それでも通常速度の打鍵がほとんど取りこぼされる問題が残ったため
+ * elapsed_msをログ出力したところ、フルスキャン1周が実測で100ms前後と
+ * 判明(gpio_pin_configure_dtが1回でIODIR+GPIOの2レジスタ書き込みを伴う
+ * ため、放電処理だけで列ごとに20回ものI2C書き込みが発生していた)。
+ * 放電をスキャン1周につき1回だけに変更し、大幅に高速化。
  *
  * 標準のkscan0デバイス(devicetree上はそのまま残してある)とは独立して動作する。
  */
@@ -113,9 +118,17 @@ static void scan_work_handler(struct k_work *work) {
     }
     last_scan_uptime_ms = now_ms;
 
-    for (int c = 0; c < NUM_COLS; c++) {
-        discharge_rows();
+    if (scan_count <= 10 || scan_count % 50 == 0) {
+        LOG_INF("discharge_scan: pass took %d ms (scan_count=%u)", elapsed_ms, scan_count);
+    }
 
+    /* 【v4】列ごとに毎回放電していたが(gpio_pin_configure_dtは1回でIODIR+GPIOの
+     * 2レジスタ書き込みを伴うため、Row5本×往復2回=20回のI2C書き込みが列ごとに
+     * 発生し、フルスキャン1周が実測で100ms前後もかかっていた=通常速度の打鍵を
+     * ほぼ取りこぼす原因)。放電をスキャン1周につき1回だけに変更し、大幅に高速化。 */
+    discharge_rows();
+
+    for (int c = 0; c < NUM_COLS; c++) {
         int set_ret = gpio_pin_set_dt(&cols[c], 1);
         if (set_ret < 0 && c >= 8) {
             LOG_ERR("discharge_scan: col %d gpio_pin_set_dt(1) failed: %d", c, set_ret);
