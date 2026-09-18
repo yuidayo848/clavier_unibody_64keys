@@ -90,7 +90,10 @@ static void scan_work_handler(struct k_work *work) {
     for (int c = 0; c < NUM_COLS; c++) {
         discharge_rows();
 
-        gpio_pin_set_dt(&cols[c], 1);
+        int set_ret = gpio_pin_set_dt(&cols[c], 1);
+        if (set_ret < 0 && c >= 8) {
+            LOG_ERR("discharge_scan: col %d gpio_pin_set_dt(1) failed: %d", c, set_ret);
+        }
 
         /* 5本のRowは全てMCP23017の同じポート(GPIOA)上にあるため、
          * 1回のポート読み取りでまとめて取得する(I2C通信1回で済む)。 */
@@ -98,8 +101,16 @@ static void scan_work_handler(struct k_work *work) {
         int ret = gpio_port_get_raw(rows[0].port, &port_val);
         if (ret < 0) {
             error_count++;
+            if (c >= 8) {
+                LOG_ERR("discharge_scan: col %d gpio_port_get_raw failed: %d", c, ret);
+            }
             gpio_pin_set_dt(&cols[c], 0);
             continue;
+        }
+
+        if (c >= 8 && (scan_count <= 5 || scan_count % 100 == 0)) {
+            LOG_INF("discharge_scan: col %d (mcp pin %d) set_ret=%d port_val=0x%04x", c,
+                    cols[c].pin, set_ret, port_val);
         }
 
         for (int r = 0; r < NUM_ROWS; r++) {
@@ -130,7 +141,7 @@ static void scan_work_handler(struct k_work *work) {
     }
 
 reschedule:
-    k_work_reschedule(&scan_work, K_MSEC(20));
+    k_work_reschedule(&scan_work, K_MSEC(8));
 }
 
 static int discharge_scan_init(void) {
