@@ -109,3 +109,17 @@
 &uart0 {
     status = "disabled";
 };
+
+/* ▼▼▼ デバッグ用: USB CDC ACM経由でログを見るための設定(診断が終わったら削除する) ▼▼▼ */
+/ {
+    chosen {
+        zephyr,console = &cdc_acm_uart0;
+    };
+};
+
+&usbd {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+    };
+};
+/* ▲▲▲ デバッグ用ここまで ▲▲▲ */
