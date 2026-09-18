@@ -73,11 +73,17 @@ static uint32_t error_count;
 
 /* 5本のRow(全てMCP23017のGPIOAポート上)を一瞬だけ出力LOWにして放電し、
  * すぐに入力へ戻す。1本ずつconfigureする必要があるが(標準GPIO APIに
- * 複数ピン一括設定は無い)、読み取りとは違いここは省略しない。 */
+ * 複数ピン一括設定は無い)、読み取りとは違いここは省略しない。
+ *
+ * 【重要】効率化のためにここの待ち時間を削ったところ、キーを押し続けた際に
+ * 放電しきれない電荷が蓄積し、無関係な列まで誤検知する不具合が発生した。
+ * 放電のための待ち時間を確保する(I2C通信の回数自体は変えていないので、
+ * 全体のI2C負荷は依然として初版より大幅に少ない)。 */
 static void discharge_rows(void) {
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_OUTPUT_INACTIVE);
     }
+    k_busy_wait(300);
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_INPUT);
     }
@@ -100,6 +106,7 @@ static void scan_work_handler(struct k_work *work) {
         if (set_ret < 0 && c >= 8) {
             LOG_ERR("discharge_scan: col %d gpio_pin_set_dt(1) failed: %d", c, set_ret);
         }
+        k_busy_wait(100);
 
         /* 5本のRowは全てMCP23017の同じポート(GPIOA)上にあるため、
          * 1回のポート読み取りでまとめて取得する(I2C通信1回で済む)。 */
