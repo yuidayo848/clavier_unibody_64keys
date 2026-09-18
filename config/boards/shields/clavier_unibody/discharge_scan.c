@@ -9,19 +9,14 @@
  *   すぐに「入力」へ戻してから読む。これにより、フローティングによる不定な
  *   読み取りを避け、押されていない状態を確実にLOWとして検出できることを狙う。
  *
- * 【v2】I2C通信過多によるハング対策として、Row読み取りをポート単位でまとめ、
- * busy_waitを削除して通信回数を削減。
- * 【v3】v2でbusy_waitを削っていたことが原因で、キー押しっぱなし時に放電し
- * きれない電荷が蓄積し無関係な列まで誤検知するようになったため、放電・整定
- * の待ち時間を復元。さらに自作の「N回連続一致」デバウンスがノイズに弱く
- * 判定が確定しなくなる問題があったため、ZMK本体が標準ドライバでも使っている
- * 実績のある時間ベース積分方式のデバウンスライブラリ(zmk/debounce.h)に
- * 置き換えた。
- * 【v4】それでも通常速度の打鍵がほとんど取りこぼされる問題が残ったため
- * elapsed_msをログ出力したところ、フルスキャン1周が実測で100ms前後と
- * 判明(gpio_pin_configure_dtが1回でIODIR+GPIOの2レジスタ書き込みを伴う
- * ため、放電処理だけで列ごとに20回ものI2C書き込みが発生していた)。
- * 放電をスキャン1周につき1回だけに変更し、大幅に高速化。
+ * 【v2での変更点】初版では実際にキー検知に成功したが、しばらく打鍵を続けると
+ * 反応しなくなる問題が出た。原因はI2C通信の過多(1列ごとにRow5本分の方向設定
+ * 書き込み10回+個別読み取り5回など、1回のフルスキャンで250回以上のI2C通信)
+ * によるバス詰まり/ハングと推定。以下で通信回数を大幅に削減:
+ *   - Row読み取りを、1本ずつ(gpio_pin_get_dt×5)ではなく、MCP23017の同じ
+ *     ポート(GPIOA)から1回のポート読み取り(gpio_port_get_raw)でまとめて取得。
+ *   - k_busy_waitによるCPUブロッキング待ちを削除(I2C通信自体の時間で十分)。
+ *   - I2Cエラー時に処理が止まらないよう、戻り値を必ずチェックしてスキップする。
  *
  * 標準のkscan0デバイス(devicetree上はそのまま残してある)とは独立して動作する。
  */
@@ -35,7 +30,6 @@
 #include <zmk/matrix_transform.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
-#include <zmk/debounce.h>
 
 LOG_MODULE_REGISTER(discharge_scan, LOG_LEVEL_INF);
 
@@ -65,37 +59,19 @@ static const struct gpio_dt_spec cols[NUM_COLS] = {
     GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 14), GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 15),
 };
 
-/* デバウンス: 自前の「N回連続一致」方式はノイズで判定がリセットされ続けて
- * 確定しなくなることがあったため、ZMK本体が標準のkscanドライバでも使っている
- * 実績のあるデバウンスライブラリ(時間ベースの積分方式)をそのまま流用する。 */
-/* elapsed_msはスキャン1周(全16列)ごとに1回しか更新しないため、しきい値は
- * 「1周にかかる時間」より十分大きくしないと実質デバウンス無しと同じになる。
- * (1周あたり概算15〜20ms程度の見込みのため、2周分程度を確保) */
-static const struct zmk_debounce_config debounce_config = {
-    .debounce_press_ms = 30,
-    .debounce_release_ms = 30,
-};
-static struct zmk_debounce_state debounce_state[NUM_ROWS][NUM_COLS];
-
+static bool key_state[NUM_ROWS][NUM_COLS];
 static bool ready;
 static uint32_t scan_count;
 static uint32_t event_count;
 static uint32_t error_count;
-static int64_t last_scan_uptime_ms;
 
 /* 5本のRow(全てMCP23017のGPIOAポート上)を一瞬だけ出力LOWにして放電し、
  * すぐに入力へ戻す。1本ずつconfigureする必要があるが(標準GPIO APIに
- * 複数ピン一括設定は無い)、読み取りとは違いここは省略しない。
- *
- * 【重要】効率化のためにここの待ち時間を削ったところ、キーを押し続けた際に
- * 放電しきれない電荷が蓄積し、無関係な列まで誤検知する不具合が発生した。
- * 放電のための待ち時間を確保する(I2C通信の回数自体は変えていないので、
- * 全体のI2C負荷は依然として初版より大幅に少ない)。 */
+ * 複数ピン一括設定は無い)、読み取りとは違いここは省略しない。 */
 static void discharge_rows(void) {
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_OUTPUT_INACTIVE);
     }
-    k_busy_wait(300);
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_INPUT);
     }
@@ -111,29 +87,13 @@ static void scan_work_handler(struct k_work *work) {
 
     scan_count++;
 
-    int64_t now_ms = k_uptime_get();
-    int elapsed_ms = (int)(now_ms - last_scan_uptime_ms);
-    if (elapsed_ms < 0) {
-        elapsed_ms = 0;
-    }
-    last_scan_uptime_ms = now_ms;
-
-    if (scan_count <= 10 || scan_count % 50 == 0) {
-        LOG_INF("discharge_scan: pass took %d ms (scan_count=%u)", elapsed_ms, scan_count);
-    }
-
-    /* 【v4】列ごとに毎回放電していたが(gpio_pin_configure_dtは1回でIODIR+GPIOの
-     * 2レジスタ書き込みを伴うため、Row5本×往復2回=20回のI2C書き込みが列ごとに
-     * 発生し、フルスキャン1周が実測で100ms前後もかかっていた=通常速度の打鍵を
-     * ほぼ取りこぼす原因)。放電をスキャン1周につき1回だけに変更し、大幅に高速化。 */
-    discharge_rows();
-
     for (int c = 0; c < NUM_COLS; c++) {
+        discharge_rows();
+
         int set_ret = gpio_pin_set_dt(&cols[c], 1);
         if (set_ret < 0 && c >= 8) {
             LOG_ERR("discharge_scan: col %d gpio_pin_set_dt(1) failed: %d", c, set_ret);
         }
-        k_busy_wait(100);
 
         /* 5本のRowは全てMCP23017の同じポート(GPIOA)上にあるため、
          * 1回のポート読み取りでまとめて取得する(I2C通信1回で済む)。 */
@@ -155,20 +115,17 @@ static void scan_work_handler(struct k_work *work) {
 
         for (int r = 0; r < NUM_ROWS; r++) {
             bool pressed = (port_val & BIT(rows[r].pin)) != 0;
-
-            zmk_debounce_update(&debounce_state[r][c], pressed, elapsed_ms, &debounce_config);
-
-            if (zmk_debounce_get_changed(&debounce_state[r][c])) {
-                bool confirmed = zmk_debounce_is_pressed(&debounce_state[r][c]);
+            if (pressed != key_state[r][c]) {
+                key_state[r][c] = pressed;
                 int32_t position = zmk_matrix_transform_row_column_to_position(TRANSFORM, r, c);
                 if (position >= 0) {
                     event_count++;
                     LOG_INF("discharge_scan: r=%d c=%d pos=%d pressed=%d (event #%u)", r, c,
-                            position, confirmed, event_count);
+                            position, pressed, event_count);
                     raise_zmk_position_state_changed((struct zmk_position_state_changed){
                         .source = ZMK_POSITION_STATE_CHANGE_SOURCE_LOCAL,
                         .position = (uint32_t)position,
-                        .state = confirmed,
+                        .state = pressed,
                         .timestamp = k_uptime_get(),
                     });
                 }
@@ -206,7 +163,6 @@ static int discharge_scan_init(void) {
     }
 
     ready = true;
-    last_scan_uptime_ms = k_uptime_get();
     LOG_INF("discharge_scan: init complete, scan loop starting");
     k_work_schedule(&scan_work, K_MSEC(1000));
     return 0;
