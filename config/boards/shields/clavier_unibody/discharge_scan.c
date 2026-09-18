@@ -9,14 +9,14 @@
  *   すぐに「入力」へ戻してから読む。これにより、フローティングによる不定な
  *   読み取りを避け、押されていない状態を確実にLOWとして検出できることを狙う。
  *
- * 【v2での変更点】初版では実際にキー検知に成功したが、しばらく打鍵を続けると
- * 反応しなくなる問題が出た。原因はI2C通信の過多(1列ごとにRow5本分の方向設定
- * 書き込み10回+個別読み取り5回など、1回のフルスキャンで250回以上のI2C通信)
- * によるバス詰まり/ハングと推定。以下で通信回数を大幅に削減:
- *   - Row読み取りを、1本ずつ(gpio_pin_get_dt×5)ではなく、MCP23017の同じ
- *     ポート(GPIOA)から1回のポート読み取り(gpio_port_get_raw)でまとめて取得。
- *   - k_busy_waitによるCPUブロッキング待ちを削除(I2C通信自体の時間で十分)。
- *   - I2Cエラー時に処理が止まらないよう、戻り値を必ずチェックしてスキップする。
+ * 【v2】I2C通信過多によるハング対策として、Row読み取りをポート単位でまとめ、
+ * busy_waitを削除して通信回数を削減。
+ * 【v3】v2でbusy_waitを削っていたことが原因で、キー押しっぱなし時に放電し
+ * きれない電荷が蓄積し無関係な列まで誤検知するようになったため、放電・整定
+ * の待ち時間を復元。さらに自作の「N回連続一致」デバウンスがノイズに弱く
+ * 判定が確定しなくなる問題があったため、ZMK本体が標準ドライバでも使っている
+ * 実績のある時間ベース積分方式のデバウンスライブラリ(zmk/debounce.h)に
+ * 置き換えた。
  *
  * 標準のkscan0デバイス(devicetree上はそのまま残してある)とは独立して動作する。
  */
@@ -30,6 +30,7 @@
 #include <zmk/matrix_transform.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
+#include <zmk/debounce.h>
 
 LOG_MODULE_REGISTER(discharge_scan, LOG_LEVEL_INF);
 
@@ -59,17 +60,23 @@ static const struct gpio_dt_spec cols[NUM_COLS] = {
     GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 14), GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 15),
 };
 
-/* デバウンス: 電気的ノイズで押下判定がチラつくのを防ぐため、同じ状態が
- * DEBOUNCE_THRESHOLD回連続で読み取れて初めて「確定」として扱う。 */
-#define DEBOUNCE_THRESHOLD 3
+/* デバウンス: 自前の「N回連続一致」方式はノイズで判定がリセットされ続けて
+ * 確定しなくなることがあったため、ZMK本体が標準のkscanドライバでも使っている
+ * 実績のあるデバウンスライブラリ(時間ベースの積分方式)をそのまま流用する。 */
+/* elapsed_msはスキャン1周(全16列)ごとに1回しか更新しないため、しきい値は
+ * 「1周にかかる時間」より十分大きくしないと実質デバウンス無しと同じになる。
+ * (1周あたり概算15〜20ms程度の見込みのため、2周分程度を確保) */
+static const struct zmk_debounce_config debounce_config = {
+    .debounce_press_ms = 30,
+    .debounce_release_ms = 30,
+};
+static struct zmk_debounce_state debounce_state[NUM_ROWS][NUM_COLS];
 
-static bool key_state[NUM_ROWS][NUM_COLS];       /* 確定済みの(ZMKに通知済みの)状態 */
-static bool candidate_state[NUM_ROWS][NUM_COLS]; /* 直近読み取った状態 */
-static uint8_t debounce_count[NUM_ROWS][NUM_COLS];
 static bool ready;
 static uint32_t scan_count;
 static uint32_t event_count;
 static uint32_t error_count;
+static int64_t last_scan_uptime_ms;
 
 /* 5本のRow(全てMCP23017のGPIOAポート上)を一瞬だけ出力LOWにして放電し、
  * すぐに入力へ戻す。1本ずつconfigureする必要があるが(標準GPIO APIに
@@ -98,6 +105,13 @@ static void scan_work_handler(struct k_work *work) {
     }
 
     scan_count++;
+
+    int64_t now_ms = k_uptime_get();
+    int elapsed_ms = (int)(now_ms - last_scan_uptime_ms);
+    if (elapsed_ms < 0) {
+        elapsed_ms = 0;
+    }
+    last_scan_uptime_ms = now_ms;
 
     for (int c = 0; c < NUM_COLS; c++) {
         discharge_rows();
@@ -129,26 +143,19 @@ static void scan_work_handler(struct k_work *work) {
         for (int r = 0; r < NUM_ROWS; r++) {
             bool pressed = (port_val & BIT(rows[r].pin)) != 0;
 
-            if (pressed == candidate_state[r][c]) {
-                if (debounce_count[r][c] < 255) {
-                    debounce_count[r][c]++;
-                }
-            } else {
-                candidate_state[r][c] = pressed;
-                debounce_count[r][c] = 1;
-            }
+            zmk_debounce_update(&debounce_state[r][c], pressed, elapsed_ms, &debounce_config);
 
-            if (debounce_count[r][c] == DEBOUNCE_THRESHOLD && pressed != key_state[r][c]) {
-                key_state[r][c] = pressed;
+            if (zmk_debounce_get_changed(&debounce_state[r][c])) {
+                bool confirmed = zmk_debounce_is_pressed(&debounce_state[r][c]);
                 int32_t position = zmk_matrix_transform_row_column_to_position(TRANSFORM, r, c);
                 if (position >= 0) {
                     event_count++;
                     LOG_INF("discharge_scan: r=%d c=%d pos=%d pressed=%d (event #%u)", r, c,
-                            position, pressed, event_count);
+                            position, confirmed, event_count);
                     raise_zmk_position_state_changed((struct zmk_position_state_changed){
                         .source = ZMK_POSITION_STATE_CHANGE_SOURCE_LOCAL,
                         .position = (uint32_t)position,
-                        .state = pressed,
+                        .state = confirmed,
                         .timestamp = k_uptime_get(),
                     });
                 }
@@ -186,6 +193,7 @@ static int discharge_scan_init(void) {
     }
 
     ready = true;
+    last_scan_uptime_ms = k_uptime_get();
     LOG_INF("discharge_scan: init complete, scan loop starting");
     k_work_schedule(&scan_work, K_MSEC(1000));
     return 0;
