@@ -1,0 +1,108 @@
+/*
+ * Clavier Unibody 64keys（左右一体・単一マイコン版）オーバーレイ
+ *
+ * ハードウェア構成（Unibody_64keys の回路図・基板データより実測）:
+ *   マイコン: Seeed Studio XIAO nRF52840（1個のみ、左右一体）
+ *   IOエクスパンダー: MCP23017 (I2C, アドレス 0x20 固定 = A0/A1/A2 全てGND)
+ *   マトリクス: 5行(Row0-4) × 16列(Col0-15)、実装スイッチ68個（col2row、ダイオードは
+ *               アノードがCol側・カソードがRow側 = Row/Col反転不可の固定配線）
+ *
+ *   Row0-4: 全てMCP23017側 (GPA3-GPA7)
+ *   Col0-7: マイコン直結 (P0.02/03/28/29/04/05, P1.11, P1.13)
+ *   Col8-15: MCP23017側 (GPA0-2, GPB0-4)
+ *   I2C:    SCL=P1.14, SDA=P1.15 (マイコンのI2Cアドレス表記ピン(P0.04/P0.05)は
+ *           今回Col4/Col5として転用しているため、I2Cバスは別ピンに配線されている)
+ *   MCP_INT (MCP23017 INTA): P1.12 → 今回のファームウェアでは未使用（ポーリング方式のため）
+ *
+ * ⚠ 既知の制約（回路図由来・ファームウェアでは変更不可）:
+ *   1. Row0 は MCP23017 の GPA7 に接続されているが、GPA7/GPB7 は
+ *      Microchipのエラッタにより「出力専用・入力として使用不可」のピン。
+ *      Row0の16キー(SW1-16, 最上段)が反応しない可能性が高い。
+ *      直す場合は基板上でRow0の配線をGPB5(未使用)かGPB6(未使用)に繋ぎ変える必要がある。
+ *   2. MCP23017には内蔵プルダウン抵抗が無い(プルアップのみ対応、GPIO_PULL_DOWN指定は
+ *      ドライバでサポートされておらず初期化エラーになる)。そのためRow0-4はプル抵抗なしの
+ *      入力としている。実運用でチャタリングや誤反応が出る場合は、基板のMCP23017側
+ *      Rowピンに 10kΩ程度のプルダウン抵抗を追加することを推奨。
+ */
+
+#include <dt-bindings/zmk/matrix_transform.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <dt-bindings/i2c/i2c.h>
+#include "clavier_unibody.dtsi"
+
+/ {
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        wakeup-source;
+        diode-direction = "col2row";
+        poll-period-ms = <10>;
+
+        row-gpios
+            = <&mcp23017 7 GPIO_ACTIVE_HIGH>   /* Row0: MCP23017 GPA7 (物理ピン28) ※入力不可エラッタ有り、上記注記参照 */
+            , <&mcp23017 6 GPIO_ACTIVE_HIGH>   /* Row1: MCP23017 GPA6 (物理ピン27) */
+            , <&mcp23017 5 GPIO_ACTIVE_HIGH>   /* Row2: MCP23017 GPA5 (物理ピン26) */
+            , <&mcp23017 4 GPIO_ACTIVE_HIGH>   /* Row3: MCP23017 GPA4 (物理ピン25) */
+            , <&mcp23017 3 GPIO_ACTIVE_HIGH>   /* Row4: MCP23017 GPA3 (物理ピン24) */
+            ;
+
+        col-gpios
+            = <&gpio0 2  GPIO_ACTIVE_HIGH>      /* Col0:  P0.02 */
+            , <&gpio0 3  GPIO_ACTIVE_HIGH>      /* Col1:  P0.03 */
+            , <&gpio0 28 GPIO_ACTIVE_HIGH>      /* Col2:  P0.28 */
+            , <&gpio0 29 GPIO_ACTIVE_HIGH>      /* Col3:  P0.29 */
+            , <&gpio0 4  GPIO_ACTIVE_HIGH>      /* Col4:  P0.04 */
+            , <&gpio0 5  GPIO_ACTIVE_HIGH>      /* Col5:  P0.05 */
+            , <&gpio1 11 GPIO_ACTIVE_HIGH>      /* Col6:  P1.11 */
+            , <&gpio1 13 GPIO_ACTIVE_HIGH>      /* Col7:  P1.13 */
+            , <&mcp23017 0  GPIO_ACTIVE_HIGH>   /* Col8:  MCP23017 GPA0 (物理ピン21) */
+            , <&mcp23017 1  GPIO_ACTIVE_HIGH>   /* Col9:  MCP23017 GPA1 (物理ピン22) */
+            , <&mcp23017 2  GPIO_ACTIVE_HIGH>   /* Col10: MCP23017 GPA2 (物理ピン23) */
+            , <&mcp23017 8  GPIO_ACTIVE_HIGH>   /* Col11: MCP23017 GPB0 (物理ピン1) */
+            , <&mcp23017 9  GPIO_ACTIVE_HIGH>   /* Col12: MCP23017 GPB1 (物理ピン2) */
+            , <&mcp23017 10 GPIO_ACTIVE_HIGH>   /* Col13: MCP23017 GPB2 (物理ピン3) */
+            , <&mcp23017 11 GPIO_ACTIVE_HIGH>   /* Col14: MCP23017 GPB3 (物理ピン4) */
+            , <&mcp23017 12 GPIO_ACTIVE_HIGH>   /* Col15: MCP23017 GPB4 (物理ピン5) */
+            ;
+    };
+};
+
+/* I2Cバスのピンを、マイコン基板デフォルト(P0.04/P0.05)からこの回路図の実配線(P1.14/P1.15)へ上書き。
+ * P0.04/P0.05 はこの基板ではCol4/Col5として使うため、I2Cのデフォルトピンとは競合させない。 */
+&pinctrl {
+    i2c1_default: i2c1_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 15)>, <NRF_PSEL(TWIM_SCL, 1, 14)>;
+        };
+    };
+    i2c1_sleep: i2c1_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 15)>, <NRF_PSEL(TWIM_SCL, 1, 14)>;
+            low-power-enable;
+        };
+    };
+};
+
+&i2c1 {
+    compatible = "nordic,nrf-twim";
+    status = "okay";
+    pinctrl-0 = <&i2c1_default>;
+    pinctrl-1 = <&i2c1_sleep>;
+    pinctrl-names = "default", "sleep";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    mcp23017: mcp23017@20 {
+        compatible = "microchip,mcp23017";
+        status = "okay";
+        reg = <0x20>;
+        gpio-controller;
+        #gpio-cells = <2>;
+        ngpios = <16>;
+    };
+};
+
+/* P1.11(Col6)・P1.12(MCP_INT用配線、本ファームウェアでは未使用)を
+ * キースキャン用GPIOとして開放するため、デフォルトで有効なUARTを無効化。 */
+&uart0 {
+    status = "disabled";
+};

@@ -1,0 +1,6 @@
+if SHIELD_CLAVIER_UNIBODY
+
+config ZMK_KEYBOARD_NAME
+    default "Clavier Unibody"
+
+endif # SHIELD_CLAVIER_UNIBODY

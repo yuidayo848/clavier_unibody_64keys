@@ -1,0 +1,2 @@
+config SHIELD_CLAVIER_UNIBODY
+    def_bool $(shields_list_contains,clavier_unibody)
