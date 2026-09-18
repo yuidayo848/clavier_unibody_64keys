@@ -55,3 +55,14 @@ jobs:
         with:
           name: ${{ matrix.shield }}-${{ matrix.board }}
           path: build/zephyr/zmk.uf2
+
+      # デバッグ用(診断が終わったら削除する): 生成されたdevicetree/Kconfig設定を確認するため
+      - name: Upload devicetree/config debug info
+        if: matrix.shield == 'clavier_unibody'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-dts-config
+          path: |
+            build/zephyr/zephyr.dts
+            build/zephyr/.config
+          if-no-files-found: warn
