@@ -9,6 +9,15 @@
  *   すぐに「入力」へ戻してから読む。これにより、フローティングによる不定な
  *   読み取りを避け、押されていない状態を確実にLOWとして検出できることを狙う。
  *
+ * 【v2での変更点】初版では実際にキー検知に成功したが、しばらく打鍵を続けると
+ * 反応しなくなる問題が出た。原因はI2C通信の過多(1列ごとにRow5本分の方向設定
+ * 書き込み10回+個別読み取り5回など、1回のフルスキャンで250回以上のI2C通信)
+ * によるバス詰まり/ハングと推定。以下で通信回数を大幅に削減:
+ *   - Row読み取りを、1本ずつ(gpio_pin_get_dt×5)ではなく、MCP23017の同じ
+ *     ポート(GPIOA)から1回のポート読み取り(gpio_port_get_raw)でまとめて取得。
+ *   - k_busy_waitによるCPUブロッキング待ちを削除(I2C通信自体の時間で十分)。
+ *   - I2Cエラー時に処理が止まらないよう、戻り値を必ずチェックしてスキップする。
+ *
  * 標準のkscan0デバイス(devicetree上はそのまま残してある)とは独立して動作する。
  */
 
@@ -54,12 +63,15 @@ static bool key_state[NUM_ROWS][NUM_COLS];
 static bool ready;
 static uint32_t scan_count;
 static uint32_t event_count;
+static uint32_t error_count;
 
+/* 5本のRow(全てMCP23017のGPIOAポート上)を一瞬だけ出力LOWにして放電し、
+ * すぐに入力へ戻す。1本ずつconfigureする必要があるが(標準GPIO APIに
+ * 複数ピン一括設定は無い)、読み取りとは違いここは省略しない。 */
 static void discharge_rows(void) {
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_OUTPUT_INACTIVE);
     }
-    k_busy_wait(100);
     for (int r = 0; r < NUM_ROWS; r++) {
         gpio_pin_configure_dt(&rows[r], GPIO_INPUT);
     }
@@ -79,11 +91,19 @@ static void scan_work_handler(struct k_work *work) {
         discharge_rows();
 
         gpio_pin_set_dt(&cols[c], 1);
-        k_busy_wait(100);
+
+        /* 5本のRowは全てMCP23017の同じポート(GPIOA)上にあるため、
+         * 1回のポート読み取りでまとめて取得する(I2C通信1回で済む)。 */
+        gpio_port_value_t port_val;
+        int ret = gpio_port_get_raw(rows[0].port, &port_val);
+        if (ret < 0) {
+            error_count++;
+            gpio_pin_set_dt(&cols[c], 0);
+            continue;
+        }
 
         for (int r = 0; r < NUM_ROWS; r++) {
-            int val = gpio_pin_get_dt(&rows[r]);
-            bool pressed = (val == 1);
+            bool pressed = (port_val & BIT(rows[r].pin)) != 0;
             if (pressed != key_state[r][c]) {
                 key_state[r][c] = pressed;
                 int32_t position = zmk_matrix_transform_row_column_to_position(TRANSFORM, r, c);
@@ -104,8 +124,9 @@ static void scan_work_handler(struct k_work *work) {
         gpio_pin_set_dt(&cols[c], 0);
     }
 
-    if (scan_count % 100 == 0) {
-        LOG_INF("discharge_scan: alive, scan_count=%u event_count=%u", scan_count, event_count);
+    if (scan_count % 200 == 0) {
+        LOG_INF("discharge_scan: alive, scan_count=%u event_count=%u error_count=%u", scan_count,
+                event_count, error_count);
     }
 
 reschedule:
