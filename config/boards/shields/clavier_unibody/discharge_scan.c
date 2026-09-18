@@ -59,7 +59,13 @@ static const struct gpio_dt_spec cols[NUM_COLS] = {
     GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 14), GPIO_DT_SPEC_GET_BY_IDX(KSCAN_NODE, col_gpios, 15),
 };
 
-static bool key_state[NUM_ROWS][NUM_COLS];
+/* デバウンス: 電気的ノイズで押下判定がチラつくのを防ぐため、同じ状態が
+ * DEBOUNCE_THRESHOLD回連続で読み取れて初めて「確定」として扱う。 */
+#define DEBOUNCE_THRESHOLD 3
+
+static bool key_state[NUM_ROWS][NUM_COLS];       /* 確定済みの(ZMKに通知済みの)状態 */
+static bool candidate_state[NUM_ROWS][NUM_COLS]; /* 直近読み取った状態 */
+static uint8_t debounce_count[NUM_ROWS][NUM_COLS];
 static bool ready;
 static uint32_t scan_count;
 static uint32_t event_count;
@@ -115,7 +121,17 @@ static void scan_work_handler(struct k_work *work) {
 
         for (int r = 0; r < NUM_ROWS; r++) {
             bool pressed = (port_val & BIT(rows[r].pin)) != 0;
-            if (pressed != key_state[r][c]) {
+
+            if (pressed == candidate_state[r][c]) {
+                if (debounce_count[r][c] < 255) {
+                    debounce_count[r][c]++;
+                }
+            } else {
+                candidate_state[r][c] = pressed;
+                debounce_count[r][c] = 1;
+            }
+
+            if (debounce_count[r][c] == DEBOUNCE_THRESHOLD && pressed != key_state[r][c]) {
                 key_state[r][c] = pressed;
                 int32_t position = zmk_matrix_transform_row_column_to_position(TRANSFORM, r, c);
                 if (position >= 0) {
