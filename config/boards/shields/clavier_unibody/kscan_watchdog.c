@@ -16,9 +16,16 @@
  *            再実行され、ピンが正しく再設定される)。既にACTIVEなら-EALREADYが
  *            返るだけで実害はない。
  *
- * どちらの状態からでも確実に復帰できるよう、数秒おきに両方を呼び出す。
+ * どちらの状態からでも確実に復帰できるよう、短い間隔で両方を呼び出す。
  * どちらも、既に押している途中のキーのデバウンス状態(data->matrix_state)には
  * 一切触れないため、正常動作中に呼んでも実害はない。
+ *
+ * 【応急処置 2026-09-20】間隔を3000ms→100msに短縮。根本原因(I2Cエラー発生時に
+ * kscan_matrix_read()がスキャン中の列ピンを戻さずワークアイテムも
+ * 再スケジュールしないまま抜けてしまうドライバ側のバグ)自体は残るため、
+ * I2Cエラーの発生頻度は変わらないが、1回のエラーで「押しっぱなし+無反応」が
+ * 固定される時間を最大3秒→最大100ms程度まで縮められる。根本修正は
+ * kscan_gpio_matrix.cをパッチしたZMKフォーク側で対応する。
  */
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -29,7 +36,7 @@
 
 LOG_MODULE_REGISTER(kscan_watchdog, LOG_LEVEL_INF);
 
-#define WATCHDOG_INTERVAL_MS 3000
+#define WATCHDOG_INTERVAL_MS 100
 
 static void watchdog_work_handler(struct k_work *work);
 static K_WORK_DELAYABLE_DEFINE(watchdog_work, watchdog_work_handler);
