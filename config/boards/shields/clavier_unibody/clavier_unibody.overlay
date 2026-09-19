@@ -89,7 +89,11 @@
     pinctrl-0 = <&i2c1_default>;
     pinctrl-1 = <&i2c1_sleep>;
     pinctrl-names = "default", "sleep";
-    clock-frequency = <I2C_BITRATE_FAST>;
+    /* 【検証中】400kHz(Fast Mode)だと、空中配線を含む今回の基板ではI2C通信が
+     * 稀に失敗し、標準kscanドライバがスキャン処理を無限停止させてしまう不具合の
+     * 原因になっていた疑いがあるため、ノイズ耐性の高い100kHz(Standard Mode)に
+     * 落として様子を見る。 */
+    clock-frequency = <I2C_BITRATE_STANDARD>;
 
     mcp23017: mcp23017@20 {
         /* このZMKフォークが固定しているZephyr 3.5.0時点では、MCP23017系チップの
