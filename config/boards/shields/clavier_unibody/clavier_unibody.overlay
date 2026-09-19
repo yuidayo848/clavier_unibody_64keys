@@ -89,11 +89,18 @@
     pinctrl-0 = <&i2c1_default>;
     pinctrl-1 = <&i2c1_sleep>;
     pinctrl-names = "default", "sleep";
-    /* 【検証中】400kHz(Fast Mode)だと、空中配線を含む今回の基板ではI2C通信が
-     * 稀に失敗し、標準kscanドライバがスキャン処理を無限停止させてしまう不具合の
-     * 原因になっていた疑いがあるため、ノイズ耐性の高い100kHz(Standard Mode)に
-     * 落として様子を見る。 */
-    clock-frequency = <I2C_BITRATE_STANDARD>;
+    /* 100kHz(Standard Mode)を試したところ、スキャン無限停止バグは起きなくなったが、
+     * 代わりに入力の遅延・連打時の取りこぼしが酷くなった。原因はkscanドライバの
+     * col2rowスキャンが「列を1本駆動→行を1本ずつ個別にI2Cで読む」を毎回律儀に
+     * 繰り返す実装になっており(kscan_gpio_matrix.c: kscan_matrix_read)、この基板は
+     * Row0-4が全てMCP23017上にあるため、1回のフルスキャンだけでI2Cトランザクションが
+     * 90回前後(列16本×行5本の個別読み出し＋MCP23017列8本分の駆動書き込み)発生する。
+     * 100kHzではこれが遅すぎてpoll-period-ms(10ms)に全く収まらなくなり、
+     * スキャン周期が体感できるレベルまで悪化していた。
+     * → 速度を落とす対策は根本解決ではなく別の不具合を生むだけと判明したため、
+     *   400kHz(Fast Mode)に戻し、無限停止バグ自体は別途スキャン処理の
+     *   強制再起動(kscan_watchdog.c)で回復させる方針に切り替える。 */
+    clock-frequency = <I2C_BITRATE_FAST>;
 
     mcp23017: mcp23017@20 {
         /* このZMKフォークが固定しているZephyr 3.5.0時点では、MCP23017系チップの
