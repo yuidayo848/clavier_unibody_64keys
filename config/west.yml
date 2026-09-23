@@ -2,10 +2,21 @@ manifest:
   remotes:
     - name: urob
       url-base: https://github.com/urob
+    - name: yuidayo848
+      url-base: https://github.com/yuidayo848
   projects:
+    # urobの本家mainではなく、このボード固有のkscan I2Cエラー無限停止バグを
+    # 直接パッチしたフォーク(clavier-kscan-i2c-error-fixブランチ)を使用する。
+    # パッチ内容: app/module/drivers/kscan/kscan_gpio_matrix.c の
+    # kscan_matrix_read() が、スキャン中にI2Cエラーが1回でも起きると
+    # (1)駆動中の出力ピンを戻さないまま、(2)ワークアイテムの再スケジュールも
+    # せずに関数を抜けてしまい、キー押しっぱなし固定+スキャン完全停止を
+    # 引き起こす不具合を修正。urobのmainに追従したくなった場合は、
+    # https://github.com/yuidayo848/zmk の clavier-kscan-i2c-error-fix ブランチを
+    # 都度リベースして使うこと。
     - name: zmk
-      remote: urob
-      revision: main
+      remote: yuidayo848
+      revision: clavier-kscan-i2c-error-fix
       import: app/west.yml
   self:
     path: config
