@@ -14,6 +14,10 @@
 #define RAISE 2
 #define LAYER3 3
 #define LAYER4 4
+#define LAYER_5 5
+#define LAYER_6 6
+#define LAYER_7 7
+#define LAYER_8 8
 
 / {
     keymap {
@@ -21,7 +25,7 @@
 
         default_layer {
             bindings = <
-                &lt 4 ESC  &kp Q  &kp W  &kp E  &kp R  &kp T  &kp N7  &kp N8  &kp N9  &kp ASTRK  &kp Y  &kp U  &kp I  &kp O  &kp MINUS  &kp MINUS  &kp TAB  &kp A  &kp S  &kp D  &kp F  &kp G  &kp N4  &kp N5  &kp N6  &kp FSLH  &kp H  &kp J  &kp K  &kp L  &kp P  &kp ENTER  &kp LSHFT  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp N1  &kp N2  &kp N3  &kp MINUS  &kp N  &kp M  &kp COMMA  &kp FSLH  &kp DOT  &kp RALT  &kp LCTRL  &kp LGUI  &kp LALT  &lt 3 INT5  &none  &none  &kp N0  &kp DOT  &kp COMMA  &kp PLUS  &mt RSHFT INT4  &kp BSPC  &kp DEL  &kp AT  &kp UNDER  &kp PSCRN  &kp LEFT  &kp UP  &kp DOWN  &kp RIGHT
+                &lt 4 ESC  &kp Q  &kp W  &kp E  &kp R  &kp T  &kp N7  &kp N8  &kp N9  &td_0  &kp Y  &kp U  &kp I  &kp O  &kp MINUS  &kp MINUS  &kp TAB  &kp A  &kp S  &kp D  &kp F  &kp G  &kp N4  &kp N5  &kp N6  &td_1  &kp H  &kp J  &kp K  &lt 4 L  &kp P  &kp ENTER  &kp LSHFT  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp N1  &kp N2  &kp N3  &kp LS(MINUS)  &kp N  &kp M  &kp COMMA  &kp FSLH  &kp DOT  &kp RALT  &kp LCTRL  &kp LGUI  &kp LALT  &none  &lt 2 INT5  &lt 3 SPACE  &kp N0  &kp DOT  &kp COMMA  &kp ENTER  &mt RSHFT INT4  &kp BSPC  &kp DEL  &kp AT  &kp LS(INT1)  &lt 6 PSCRN  &kp LEFT  &kp UP  &kp DOWN  &kp RIGHT
             >;
         };
 
@@ -33,21 +37,61 @@
 
         raise_layer {
             bindings = <
-                &trans  &kp F1  &kp F2  &kp F3  &kp F4  &kp F5  &kp F6  &kp F7  &kp F8  &kp F9  &kp F10  &kp F11  &kp F12  &trans  &trans  &trans  &trans  &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &bt BT_CLR  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+                &kp LS(N5)  &kp EQUAL  &kp INT3  &kp LS(N4)  &kp LS(N6)  &kp LBKT  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LS(EQUAL)  &kp MINUS  &kp EXCL  &kp QMARK  &kp LS(N8)  &kp LS(N9)  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LS(N2)  &kp LS(N7)  &kp SEMI  &kp SQT  &kp RBKT  &kp BSLH  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
             >;
         };
 
         layer3_layer {
             bindings = <
-                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+                &kp F2  &kp F4  &kp F5  &kp F8  &kp LG(DOWN)  &kp LG(UP)  &trans  &trans  &trans  &trans  &trans  &kp HOME  &kp UP  &kp END  &trans  &trans  &trans  &kp LC(A)  &kp LC(S)  &trans  &kp LCTRL  &kp LS(LG(RIGHT))  &trans  &trans  &trans  &trans  &trans  &kp LEFT  &kp DOWN  &kp RIGHT  &trans  &trans  &trans  &kp LC(Z)  &kp LC(X)  &kp LC(C)  &kp LC(V)  &kp LC(B)  &trans  &trans  &trans  &trans  &trans  &kp PG_UP  &trans  &kp PG_DN  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LSHFT  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
             >;
         };
 
         layer4_layer {
             bindings = <
-                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &bootloader  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LG(LEFT)  &kp LG(RIGHT)  &trans  &trans  &bootloader  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp TAB  &kp LALT  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        layer5_layer {
+            bindings = <
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        layer6_layer {
+            bindings = <
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp C_MUTE  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_BRI_DN  &kp C_BRI_UP  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        layer7_layer {
+            bindings = <
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        layer8_layer {
+            bindings = <
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
             >;
         };
     };
 
+    behaviors {
+        td_0: td_0 {
+            compatible = "zmk,behavior-tap-dance";
+            label = "TD_0";
+            #binding-cells = <0>;
+            tapping-term-ms = <200>;
+            bindings = <&kp KP_DIVIDE>, <&kp KP_MULTIPLY>;
+        };
+        td_1: td_1 {
+            compatible = "zmk,behavior-tap-dance";
+            label = "TD_1";
+            #binding-cells = <0>;
+            tapping-term-ms = <200>;
+            bindings = <&kp KP_PLUS>, <&kp KP_MINUS>;
+        };
+    };
 };
