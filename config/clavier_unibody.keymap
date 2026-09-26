@@ -61,7 +61,7 @@
 
         layer6_layer {
             bindings = <
-                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp C_MUTE  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_BRI_DN  &kp C_BRI_UP  &trans  &trans  &trans  &trans  &trans
+                &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &syainbangou  &email  &yuitarebuu1124  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp C_MUTE  &kp C_VOL_DN  &kp C_VOL_UP  &kp C_BRI_DN  &kp C_BRI_UP  &trans  &trans  &trans  &trans  &trans
             >;
         };
 
@@ -99,6 +99,75 @@
             #binding-cells = <0>;
             tapping-term-ms = <200>;
             bindings = <&kp LBKT>, <&kp LS(INT1)>;
+        };
+    };
+    macros {
+        syainbangou: syainbangou {
+            compatible = "zmk,behavior-macro";
+            label = "SYAINBANGOU";
+            #binding-cells = <0>;
+            bindings = <
+                &macro_tap &kp LANG2
+                &macro_tap &kp N0
+                &macro_tap &kp N9
+                &macro_tap &kp N0
+                &macro_tap &kp N0
+                &macro_tap &kp N9
+                &macro_tap &kp N4
+                &macro_tap &kp N6
+            >;
+        };
+        email: email {
+            compatible = "zmk,behavior-macro";
+            label = "EMAIL";
+            #binding-cells = <0>;
+            bindings = <
+                &macro_tap &kp LANG2
+                &macro_tap &kp Y
+                &macro_tap &kp U
+                &macro_tap &kp I
+                &macro_tap &kp LS(INT1)
+                &macro_tap &kp H
+                &macro_tap &kp O
+                &macro_tap &kp S
+                &macro_tap &kp H
+                &macro_tap &kp I
+                &macro_tap &kp N
+                &macro_tap &kp A
+                &macro_tap &kp LBKT
+                &macro_tap &kp T
+                &macro_tap &kp R
+                &macro_tap &kp DOT
+                &macro_tap &kp M
+                &macro_tap &kp U
+                &macro_tap &kp F
+                &macro_tap &kp G
+                &macro_tap &kp DOT
+                &macro_tap &kp J
+                &macro_tap &kp P
+            >;
+        };
+        yuitarebuu1124: yuitarebuu1124 {
+            compatible = "zmk,behavior-macro";
+            label = "YUITAREBUU1124";
+            #binding-cells = <0>;
+            bindings = <
+                &macro_tap &kp LANG2
+                &macro_tap &kp Y
+                &macro_tap &kp U
+                &macro_tap &kp I
+                &macro_tap &kp T
+                &macro_tap &kp A
+                &macro_tap &kp R
+                &macro_tap &kp E
+                &macro_tap &kp B
+                &macro_tap &kp U
+                &macro_tap &kp U
+                &macro_tap &kp N1
+                &macro_tap &kp N1
+                &macro_tap &kp N2
+                &macro_tap &kp N4
+            >;
         };
     };
 };
