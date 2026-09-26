@@ -102,9 +102,9 @@
         };
     };
     macros {
-        syainbangou: syainbangou {
+        td_0: td_0 {
             compatible = "zmk,behavior-macro";
-            label = "SYAINBANGOU";
+            label = "TD_0";
             #binding-cells = <0>;
             bindings = <
                 &macro_tap &kp LANG2
