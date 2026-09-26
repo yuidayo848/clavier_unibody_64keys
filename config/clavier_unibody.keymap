@@ -10,8 +10,8 @@
 #include <dt-bindings/zmk/mouse.h>
 
 #define DEFAULT 0
-#define LOWER 1
-#define RAISE 2
+#define LAYER1 1
+#define LAYER2 2
 #define LAYER3 3
 #define LAYER4 4
 #define LAYER_5 5
@@ -43,7 +43,7 @@
 
         layer3_layer {
             bindings = <
-                &kp F2  &kp F4  &kp F5  &kp F8  &kp LG(DOWN)  &kp LG(UP)  &trans  &trans  &trans  &trans  &trans  &kp HOME  &kp UP  &kp END  &trans  &trans  &trans  &kp LC(A)  &kp LC(S)  &trans  &kp LCTRL  &kp LS(LG(RIGHT))  &trans  &trans  &trans  &trans  &trans  &kp LEFT  &kp DOWN  &kp RIGHT  &trans  &trans  &trans  &kp LC(Z)  &kp LC(X)  &kp LC(C)  &kp LC(V)  &kp LC(B)  &trans  &trans  &trans  &trans  &trans  &kp PG_UP  &trans  &kp PG_DN  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LSHFT  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+                &kp F2  &kp F4  &kp F5  &kp F8  &kp LG(DOWN)  &kp LG(UP)  &trans  &trans  &trans  &trans  &trans  &kp HOME  &kp UP  &kp END  &trans  &trans  &trans  &kp LC(A)  &kp LC(S)  &trans  &kp LCTRL  &kp LS(LG(RIGHT))  &trans  &trans  &trans  &trans  &trans  &kp LEFT  &kp DOWN  &kp RIGHT  &trans  &trans  &trans  &kp LC(Z)  &kp LC(X)  &kp LC(C)  &kp LC(V)  &kp SPACE  &trans  &trans  &trans  &trans  &trans  &kp PG_UP  &trans  &kp PG_DN  &trans  &trans  &trans  &trans  &trans  &kp LALT  &kp TAB  &trans  &trans  &trans  &trans  &trans  &kp LSHFT  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
             >;
         };
 
